@@ -21,6 +21,10 @@ namespace Test_task.Services
 
         public async Task CreateProjectAsync(Project project, int createdByUserId)
         {
+            if (string.IsNullOrEmpty(project.Name) || string.IsNullOrWhiteSpace(project.Name)) 
+            {
+                throw new ArgumentException("Название проекта не может быть пустым!");
+            }
             await _projectsRepository.CreateProject(project, createdByUserId);
         }
 

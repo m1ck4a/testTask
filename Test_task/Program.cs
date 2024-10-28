@@ -9,6 +9,8 @@ using ProjectManagement.Architecture.UserRepository;
 using Microsoft.EntityFrameworkCore;
 using Test_task.Interfaces;
 using ProjectManagement.Architecture.Mappers;
+using System.Diagnostics;
+using System.IO.Compression;
 
 namespace Test_task
 {
@@ -16,6 +18,44 @@ namespace Test_task
     {
         static async Task Main(string[] args)
         {
+
+            //string portablePostgresPath = @"C:\PostgreSQLPortable";
+            //string zipFilePath = "postgresql-portable.zip"; // Укажите путь к архиву
+            //string dataDir = Path.Combine(portablePostgresPath, "data");
+            //string backupSqlFile = "backup.sql"; // Укажите путь к вашему SQL-скрипту
+
+            //// Шаг 1: Распаковка архива, если папка не существует
+            //if (!Directory.Exists(portablePostgresPath))
+            //{
+            //    ZipFile.ExtractToDirectory(zipFilePath, portablePostgresPath);
+            //}
+
+            //// Шаг 2: Проверка, инициализирована ли база данных
+            //if (!Directory.Exists(dataDir) || !File.Exists(Path.Combine(dataDir, "PG_VERSION")))
+            //{
+            //    string initdbPath = Path.Combine(portablePostgresPath, "bin", "initdb.exe");
+            //    Console.WriteLine($"Путь к initdb: {initdbPath}");
+            //    RunCommand(Path.Combine(portablePostgresPath, "bin", "initdb.exe"), $"-D \"{dataDir}\"");
+            //}
+            //else
+            //{
+            //    Console.WriteLine("База данных уже инициализирована.");
+            //}
+
+            //// Шаг 3: Проверка, запущен ли сервер
+            //if (!IsPostgresRunning(dataDir))
+            //{
+            //    RunCommand(Path.Combine(portablePostgresPath, "bin", "pg_ctl.exe"), $"-D \"{dataDir}\" start");
+            //}
+            //else
+            //{
+            //    Console.WriteLine("Сервер PostgreSQL уже запущен.");
+            //}
+
+            //// Шаг 4: Выполнение SQL-скрипта
+            //RunCommand(Path.Combine(portablePostgresPath, "bin", "psql.exe"), $"-U postgres -d имя_вашей_базы -f \"{backupSqlFile}\"");
+
+
             var serviceProvider = new ServiceCollection()
                 .AddDbContext<ProjectManagementDbContext>()
                 .AddScoped<IRolesRepository, RolesRepository>()
@@ -33,34 +73,41 @@ namespace Test_task
 
 
             // Комментарий ниже нужен для создания локальной базы данных, внесения первого юзера (админа), роли админа и просто тестового проекта
-
-            //using (ProjectManagementDbContext dbContext = new ProjectManagementDbContext())
-            //{
-            //    RoleEntity role = new RoleEntity { Id = 1, Name = "admin" };
-            //    UserEntity admin = new UserEntity { login = "admin", password = "admin123", Role = role, Id = 1};
-            //    ProjectEntity project = new ProjectEntity { Name = "testProject"};
-            //    dbContext.Roles.Add(role);
-            //    dbContext.SaveChanges();
-            //    dbContext.Users.Add(admin);
-            //    dbContext.SaveChanges();
-            //    dbContext.Projects.Add(project);
-            //    dbContext.SaveChanges();
-            //}
-
-            User user = new User();
-
-            Console.WriteLine("Введите логин:");
-            var login = Console.ReadLine();
-            Console.WriteLine("Введите пароль:");
-            var password = Console.ReadLine();
-
-            user = await userService.GetUserByLoginAsync(login);
-            if (user == null || user.password != password)
+            
+            using (ProjectManagementDbContext dbContext = new ProjectManagementDbContext())
             {
-                Console.WriteLine("Неверный логин или пароль.");
-                return;
+                var test = dbContext.Users.FirstOrDefault();
+                if (test == null)
+                {
+                    RoleEntity role = new RoleEntity { Id = 1, Name = "admin" };
+                    UserEntity admin = new UserEntity { login = "admin", password = "admin123", Role = role, Id = 1 };
+                    ProjectEntity project = new ProjectEntity { Name = "testProject" };
+                    dbContext.Roles.Add(role);
+                    dbContext.SaveChanges();
+                    dbContext.Users.Add(admin);
+                    dbContext.SaveChanges();
+                    dbContext.Projects.Add(project);
+                    dbContext.SaveChanges();
+                }
             }
 
+            User user = new User();
+            bool check = true;
+            while (check)
+            {
+                Console.WriteLine("Введите логин:");
+                var login = Console.ReadLine();
+                Console.WriteLine("Введите пароль:");
+                var password = Console.ReadLine();
+
+                user = await userService.GetUserByLoginAsync(login);
+                if (user == null || user.password != password)
+                {
+                    Console.WriteLine("Неверный логин или пароль.\n");
+                }
+                else check = false;
+
+            }
             Console.WriteLine($"Добро пожаловать, {user.login}!");
 
             if (user.roleName == "admin")
@@ -89,6 +136,7 @@ namespace Test_task
 
                 switch (choice)
                 {
+                    // Просмотр всех пользователей существующих
                     case "1":
                         var users = await userService.GetUsersAsync();
                         Console.WriteLine("Пользователи:\n");
@@ -96,8 +144,9 @@ namespace Test_task
                         {
                             Console.WriteLine($"Логин: {u.login}, Роль: {u.roleName}");
                         }
-                        break;
+                        break; 
 
+                    // Добавление пользователя
                     case "2":
                         Console.WriteLine("Введите логин нового пользователя:");
                         var newLogin = Console.ReadLine();
@@ -106,26 +155,38 @@ namespace Test_task
                         Console.WriteLine("Введите роль:");
                         var newRole = Console.ReadLine();
                         User createUser = new User { login = newLogin, password = newPassword, roleName = newRole };
-                        if (await userService.CreateUserAsync(createUser, user.Id) == null)
+                        try
                         {
-                            Console.WriteLine("Пользователь не был добавлен");
-                            break;
+                            if (await userService.CreateUserAsync(createUser, user.Id) == 0) 
+                            {
+                                Console.WriteLine("Пользователь не был добавлен так, как такой логин уже существует");
+                                break;
+                            };
                         }
-                        else
+                        catch(Exception ex) 
                         {
-                            Console.WriteLine("Пользователь добавлен.");
-                            break;
-                        };
+                            Console.WriteLine(ex.Message);
+                        }
+                        break;
 
+                    // Создание задачи
                     case "3":
                         Console.WriteLine("Введите название задачи:");
                         var name = Console.ReadLine();
                         Project project = new Project { Name = name };
-
-                        await taskService.CreateProjectAsync(project, user.Id);
+                        try
+                        {
+                            await taskService.CreateProjectAsync(project, user.Id);
+                        }
+                        catch (Exception ex) 
+                        {
+                            Console.WriteLine(ex.Message);
+                            break;
+                        }
                         Console.WriteLine("Задача добавлена.");
                         break;
 
+                    // Назначение задачи на пользователей
                     case "4":
                         var allProjects = await taskService.GetAllProjectsAsync();
 
@@ -135,8 +196,14 @@ namespace Test_task
                                 + ((pr.Status != null) ? $", Статус задачи: {pr.Status}" : "")));
                         }
                         Console.WriteLine("\nВыберите задачу, которую хотите изменить по её номеру: ");
-                        int idChoice = Convert.ToInt32(Console.ReadLine());
-                        var choiceProject = await taskService.GetProjectByIdAsync(idChoice);
+                        string idChoice =Console.ReadLine();
+                        int projectId = 0;
+                        if (!int.TryParse(idChoice, out projectId))
+                        {
+                            Console.WriteLine("Вы ввели неверный символ, введите номер задачи\n");
+                            break;
+                        }
+                        var choiceProject = await taskService.GetProjectByIdAsync(projectId);
 
                         if (choiceProject == null) 
                         {
@@ -239,5 +306,40 @@ namespace Test_task
                 }
             }
         }
+
+        //static void RunCommand(string command, string arguments)
+        //{
+        //    ProcessStartInfo startInfo = new ProcessStartInfo
+        //    {
+        //        FileName = command,
+        //        Arguments = arguments,
+        //        RedirectStandardOutput = true,
+        //        RedirectStandardError = true,
+        //        UseShellExecute = false,
+        //        CreateNoWindow = true
+        //    };
+
+        //    using (Process process = Process.Start(startInfo))
+        //    {
+        //        process.WaitForExit();
+        //        string output = process.StandardOutput.ReadToEnd();
+        //        string error = process.StandardError.ReadToEnd();
+
+        //        if (process.ExitCode != 0)
+        //        {
+        //            Console.WriteLine($"Error: {error}");
+        //        }
+        //        else
+        //        {
+        //            Console.WriteLine(output);
+        //        }
+        //    }
+        //}
+
+        //static bool IsPostgresRunning(string dataDir)
+        //{
+        //    string pidFile = Path.Combine(dataDir, "postmaster.pid");
+        //    return File.Exists(pidFile);
+        //}
     }
 }

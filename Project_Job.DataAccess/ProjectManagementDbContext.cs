@@ -17,7 +17,7 @@ namespace Project_Job.DataAccess
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
-            optionsBuilder.UseNpgsql("Host=localhost;Port=5432;Database=TestDb;Username=postgres;Password=1234");
+            optionsBuilder.UseSqlite("Data Source=TestDb.db");
         }
 
         //protected override void OnModelCreating(ModelBuilder modelBuilder)

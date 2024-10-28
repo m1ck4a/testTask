@@ -68,6 +68,7 @@ namespace ProjectManagement.Architecture.Mappers
                 };
             }
         }
+
         public ProjectEntity MapProjectToEntityWithStatus(Project project)
         {
             return new ProjectEntity
