@@ -15,15 +15,11 @@ namespace Test_task.Services
 
         public async Task<int> CreateUserAsync(User user, int createdByUserId)
         {
-            if (await _userRepository.Create(user, createdByUserId) != 0)
+            if (string.IsNullOrWhiteSpace(user.login) || string.IsNullOrEmpty(user.login) || user.login.Length < 3) 
             {
-                return user.Id;
+                throw new ArgumentException("Логин не может быть пустым и меньше 3 символов ");
             }
-            else 
-            {
-                return 0;
-            };
-            
+            return await _userRepository.Create(user, createdByUserId);
         }
 
         public async Task UpdateUserAsync(User user, int updatedByUserId)
